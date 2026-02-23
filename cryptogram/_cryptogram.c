@@ -193,8 +193,35 @@ static void do_cbc(const uint8_t *in, uint8_t *out, uint32_t len,
 /* ──────────────────────────────────────────────────────────────────
  * PQ Factorisation — deterministic Brent-Pollard ρ
  * ────────────────────────────────────────────────────────────────── */
+#if defined(__SIZEOF_INT128__)
+/* GCC / Clang 64-bit: native 128-bit type is available */
 typedef unsigned __int128 u128;
 static uint64_t mulmod(uint64_t a,uint64_t b,uint64_t m){return(uint64_t)(((u128)a*b)%m);}
+#elif defined(_MSC_VER) && defined(_M_X64)
+/* MSVC x64: __int128 doesn't exist, but _umul128 / _udiv128 intrinsics do
+ * (_udiv128 available since VS 2019 16.8 / MSVC 19.28) */
+#include <intrin.h>
+static uint64_t mulmod(uint64_t a,uint64_t b,uint64_t m){
+    uint64_t hi,r;
+    uint64_t lo=_umul128(a,b,&hi);
+    _udiv128(hi,lo,m,&r);
+    return r;
+}
+#else
+/* Portable fallback for MSVC x86 (win32) and any other platform without
+ * 128-bit support.  Uses binary long-multiplication — correct for all
+ * 64-bit inputs even though it is slower than the intrinsic path. */
+static uint64_t mulmod(uint64_t a,uint64_t b,uint64_t m){
+    uint64_t r=0;
+    a%=m;
+    while(b){
+        if(b&1){r+=a;if(r>=m)r-=m;}
+        a<<=1;if(a>=m)a-=m;
+        b>>=1;
+    }
+    return r;
+}
+#endif
 static uint64_t powmod(uint64_t b,uint64_t e,uint64_t m){uint64_t r=1;b%=m;for(;e;e>>=1){if(e&1)r=mulmod(r,b,m);b=mulmod(b,b,m);}return r;}
 static int mr_test(uint64_t n,uint64_t a){if(n%a==0)return n==a;uint64_t d=n-1;int r=0;while(!(d&1)){d>>=1;r++;}uint64_t x=powmod(a,d,n);if(x==1||x==n-1)return 1;for(int i=0;i<r-1;i++){x=mulmod(x,x,n);if(x==n-1)return 1;}return 0;}
 static int is_prime(uint64_t n){if(n<2)return 0;static const uint64_t W[]={2,3,5,7,11,13,17,19,23,29,31,37,0};for(int i=0;W[i];i++){if(n==W[i])return 1;if(!mr_test(n,W[i]))return 0;}return 1;}

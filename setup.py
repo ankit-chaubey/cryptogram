@@ -22,17 +22,20 @@ else:
         "-Wall",
         "-Wno-unused-variable",
     ]
-    # -march=native is only safe for single-arch builds.
-    # On macOS universal2 (arm64 + x86_64), ARCHFLAGS contains both arches;
-    # using -march=native there maps to the host CPU (e.g. apple-m3) which is
-    # not a valid target when clang compiles the x86_64 slice.
-    archflags = os.environ.get("ARCHFLAGS", "")
-    is_universal2 = "arm64" in archflags and "x86_64" in archflags
-    if not is_universal2:
+    # -march=native tells the compiler to optimise for the build host's CPU.
+    # On macOS this is unsafe: Python installers ship as universal2 fat
+    # binaries, so the build system passes both -arch arm64 and -arch x86_64
+    # to clang.  With -march=native clang resolves the native CPU (e.g.
+    # apple-m3) and then rejects it as an unknown target when compiling the
+    # x86_64 slice.  Skip it on macOS entirely.
+    if sys.platform != "darwin":
         extra_compile_args.insert(1, "-march=native")
-    # Explicit AES-NI / SSE2 flags for function-level target attrs
-    # (used by __attribute__((target("aes"))) in the source)
-    aesni_flags = ["-maes", "-msse2", "-msse4.1"]
+
+    # The AES implementation uses OpenSSL loaded at runtime via dlopen —
+    # there are no SSE / AES-NI intrinsics in the C source, so the x86-only
+    # -maes/-msse2/-msse4.1 flags are not needed and would cause errors when
+    # clang compiles the arm64 slice of a universal2 build.
+    aesni_flags = [] if sys.platform == "darwin" else ["-maes", "-msse2", "-msse4.1"]
 
 ext = Extension(
     "cryptogram._cryptogram",
