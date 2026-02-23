@@ -45,15 +45,18 @@ jobs:
       - uses: pypa/cibuildwheel@v2.17.0
         env:
           CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
+          # 32-bit Linux (i686) ships OpenSSL 1.0.x in manylinux containers
+          # and is no longer a supported target for most Python packages.
+          # 32-bit Windows (win32) is similarly obsolete. Skip both.
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_TEST_COMMAND: "python {project}/tests/test_cryptogram.py"
           # cryptography is optional (used only by the pure-Python fallback).
-          # On niche platforms (e.g. manylinux i686) there is no pre-built
-          # wheel and building from source fails because cryptography's own
-          # build deps (puccinialin) require Python >=3.9.  Use || true so
-          # the C-extension primary backend can still be packaged and tested.
+          # On niche platforms there is no pre-built wheel and building from
+          # source fails. Use || true so the C-extension backend can still be
+          # packaged and tested.
           CIBW_BEFORE_BUILD: "pip install cryptography || true"
           # Install cryptography in the test venv too: if OpenSSL is
-          # unavailable at runtime (e.g. unusual manylinux sandbox), the
-          # C extension raises ImportError and __init__.py falls back to
-          # _fallback.py — which needs cryptography to be importable.
+          # unavailable at runtime the C extension raises ImportError and
+          # __init__.py falls back to _fallback.py, which needs cryptography.
           CIBW_BEFORE_TEST: "pip install cryptography || true"

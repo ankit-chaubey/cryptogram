@@ -164,9 +164,14 @@ static void ssl_load(void) {
     /* ── Strategy 3: bare name search (system install / dev environment) ── */
     {
         static const char *libs[] = {
-            /* Linux */
-            "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
-            "libssl.so.3",   "libssl.so.1.1",   "libssl.so",
+            /* Linux — try all known SONAME versions, newest first.
+         * libcrypto.so.10 is the SONAME for OpenSSL 1.0.x on RHEL/CentOS 7
+         * (manylinux2014_i686 container); without it the i686 build silently
+         * falls back to pure-Python and fails if cryptography is absent. */
+            "libcrypto.so.3","libcrypto.so.1.1",
+            "libcrypto.so.10","libcrypto.so.1.0.2","libcrypto.so.1.0.0",
+            "libcrypto.so",
+            "libssl.so.3","libssl.so.1.1","libssl.so.10","libssl.so",
             /* Windows 64-bit */
             "libcrypto-3-x64.dll","libcrypto-1_1-x64.dll",
             /* Windows 32-bit */
