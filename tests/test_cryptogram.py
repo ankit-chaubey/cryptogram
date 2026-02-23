@@ -15,9 +15,20 @@ import unittest
 import struct
 
 # ──────────────────────────────────────────────────────────────────────
-# Make sure we import from our local package, not any installed version
+# In development (after `python setup.py build_ext --inplace`), prefer
+# the local source tree so edits are picked up immediately.
+# When cibuildwheel tests an installed wheel, the C extension lives in
+# site-packages and we must NOT shadow it with the source directory
+# (which has no compiled extension).  Only prepend the project root when
+# the compiled extension actually exists there.
 # ──────────────────────────────────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_pkg_dir = os.path.join(_project_root, "cryptogram")
+if os.path.isdir(_pkg_dir) and any(
+    f.startswith("_cryptogram") and (f.endswith(".so") or f.endswith(".pyd"))
+    for f in os.listdir(_pkg_dir)
+):
+    sys.path.insert(0, _project_root)
 
 import cryptogram
 from cryptogram._fallback import (

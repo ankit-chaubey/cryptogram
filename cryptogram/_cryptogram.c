@@ -92,8 +92,10 @@ static void ssl_load(void) {
         /* Linux */
         "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
         "libssl.so.3",   "libssl.so.1.1",   "libssl.so",
-        /* Windows */
+        /* Windows 64-bit */
         "libcrypto-3-x64.dll","libcrypto-1_1-x64.dll",
+        /* Windows 32-bit */
+        "libcrypto-3.dll","libcrypto-1_1.dll",
         /* macOS — bare dylib names (found if on DYLD_LIBRARY_PATH) */
         "libcrypto.3.dylib","libcrypto.1.1.dylib","libcrypto.dylib",
         /* macOS — Homebrew arm64 (Apple Silicon, prefix /opt/homebrew) */
