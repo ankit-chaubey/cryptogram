@@ -27,7 +27,14 @@ classifiers = [
     "Topic :: Communications :: Chat",
 ]
 requires-python = ">=3.8"
-dependencies = ["cryptography>=3.0"]
+dependencies = []
+# cryptography is used only by the pure-Python fallback backend (_fallback.py).
+# Keeping it as a hard dependency causes pip to try building it from source on
+# platforms without a pre-built wheel (e.g. manylinux i686, Python 3.8), which
+# fails because cryptography's own build dep 'puccinialin' requires Python>=3.9.
+# Users who need the fallback can install it manually: pip install cryptography
+[project.optional-dependencies]
+fallback = ["cryptography>=3.0"]
 
 [project.urls]
 Homepage = "https://github.com/ankit-chaubey/cryptogram"

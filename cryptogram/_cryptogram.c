@@ -78,6 +78,16 @@ static struct {
 
 static void ssl_load(void) {
     if (G.ok) return;
+#ifdef __APPLE__
+    /* macOS hardened-runtime policy: any attempt to dlopen a non-system
+     * libcrypto (including Homebrew builds) triggers the OS-level warning
+     * "loading libcrypto in an unsafe way" and a deliberate SIGABRT.
+     * There is no safe path to OpenSSL via dlopen on macOS.
+     * Setting ok=-1 makes PyInit__cryptogram raise ImportError so that
+     * __init__.py falls back to the pure-Python cryptography backend. */
+    G.ok = -1;
+    return;
+#endif
     static const char *libs[] = {
         /* Linux */
         "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
