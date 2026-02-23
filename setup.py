@@ -16,13 +16,20 @@ if is_msvc:
 else:
     extra_compile_args = [
         "-O3",           # maximum optimisation
-        "-march=native", # let compiler use all available CPU features
         "-funroll-loops",
         "-fomit-frame-pointer",
         "-std=c11",
         "-Wall",
         "-Wno-unused-variable",
     ]
+    # -march=native is only safe for single-arch builds.
+    # On macOS universal2 (arm64 + x86_64), ARCHFLAGS contains both arches;
+    # using -march=native there maps to the host CPU (e.g. apple-m3) which is
+    # not a valid target when clang compiles the x86_64 slice.
+    archflags = os.environ.get("ARCHFLAGS", "")
+    is_universal2 = "arm64" in archflags and "x86_64" in archflags
+    if not is_universal2:
+        extra_compile_args.insert(1, "-march=native")
     # Explicit AES-NI / SSE2 flags for function-level target attrs
     # (used by __attribute__((target("aes"))) in the source)
     aesni_flags = ["-maes", "-msse2", "-msse4.1"]

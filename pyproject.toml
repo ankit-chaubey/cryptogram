@@ -1,10 +1,10 @@
 [build-system]
 requires = ["setuptools>=61", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "cryptogram"
-version = "0.1.0"
+version = "1.0.0"
 description = "Ultra-fast AES-256 cryptography for Telegram MTProto — AES-NI accelerated, API-compatible with tgcrypto and cryptg"
 readme = "README.md"
 license = { text = "MIT" }
