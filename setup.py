@@ -31,14 +31,13 @@ else:
     if sys.platform != "darwin":
         extra_compile_args.insert(1, "-march=native")
 
-    # -maes/-msse2/-msse4.1 are x86-only intrinsic flags; they are invalid on
-    # ARM (aarch64/armv7) and any other non-x86 target and will cause a
-    # hard build error.  AES acceleration on ARM is handled at runtime via
-    # OpenSSL's own CPU-feature detection — no compiler flags needed.
+    # -maes/-msse2/-msse4.1 are x86-only flags and are also rejected by
+    # Apple clang on macOS (even on x86_64). Only apply them on non-macOS
+    # x86/x86_64 Linux and Windows.
     import platform
     machine = platform.machine().lower()
     is_x86 = machine in ("x86_64", "amd64", "i686", "i386")
-    aesni_flags = ["-maes", "-msse2", "-msse4.1"] if is_x86 else []
+    aesni_flags = [] if (sys.platform == "darwin" or not is_x86) else ["-maes", "-msse2", "-msse4.1"]
 
 ext = Extension(
     "cryptogram._cryptogram",
