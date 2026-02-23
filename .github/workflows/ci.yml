@@ -48,7 +48,7 @@ jobs:
           # 32-bit Linux (i686) ships OpenSSL 1.0.x in manylinux containers
           # and is no longer a supported target for most Python packages.
           # 32-bit Windows (win32) is similarly obsolete. Skip both.
-          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_LINUX: "x86_64"
           CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_TEST_COMMAND: "python {project}/tests/test_cryptogram.py"
           # cryptography is optional (used only by the pure-Python fallback).
