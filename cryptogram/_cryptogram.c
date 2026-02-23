@@ -79,9 +79,25 @@ static struct {
 static void ssl_load(void) {
     if (G.ok) return;
     static const char *libs[] = {
+        /* Linux */
         "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
         "libssl.so.3",   "libssl.so.1.1",   "libssl.so",
+        /* Windows */
         "libcrypto-3-x64.dll","libcrypto-1_1-x64.dll",
+        /* macOS — bare dylib names (found if on DYLD_LIBRARY_PATH) */
+        "libcrypto.3.dylib","libcrypto.1.1.dylib","libcrypto.dylib",
+        /* macOS — Homebrew arm64 (Apple Silicon, prefix /opt/homebrew) */
+        "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
+        "/opt/homebrew/opt/openssl@3/lib/libcrypto.dylib",
+        "/opt/homebrew/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
+        "/opt/homebrew/lib/libcrypto.3.dylib",
+        /* macOS — Homebrew x86_64 (Intel, prefix /usr/local) */
+        "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib",
+        "/usr/local/opt/openssl@3/lib/libcrypto.dylib",
+        "/usr/local/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
+        "/usr/local/lib/libcrypto.3.dylib",
+        /* macOS — system fallback */
+        "/usr/lib/libcrypto.dylib",
         NULL
     };
     for (int i = 0; libs[i]; i++) {
