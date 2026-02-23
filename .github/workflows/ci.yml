@@ -45,6 +45,11 @@ jobs:
       - uses: pypa/cibuildwheel@v2.17.0
         env:
           CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
+          # musllinux (Alpine/musl libc) containers have no pre-built
+          # cryptography wheel for Python 3.8 and building from source fails
+          # (missing puccinialin build dep). Skip musl entirely — the
+          # manylinux wheels cover the vast majority of Linux deployments.
+          CIBW_SKIP: "*musllinux*"
           # 32-bit Linux (i686) ships OpenSSL 1.0.x in manylinux containers
           # and is no longer a supported target for most Python packages.
           # 32-bit Windows (win32) is similarly obsolete. Skip both.
