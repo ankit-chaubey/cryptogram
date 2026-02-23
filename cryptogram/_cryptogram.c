@@ -96,8 +96,12 @@ static void ssl_load(void) {
         "/usr/local/opt/openssl@3/lib/libcrypto.dylib",
         "/usr/local/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
         "/usr/local/lib/libcrypto.3.dylib",
-        /* macOS — system fallback */
-        "/usr/lib/libcrypto.dylib",
+        /* NOTE: /usr/lib/libcrypto.dylib is intentionally omitted.
+         * On macOS 12+ that path is Apple's security stub: dlopen-ing it
+         * triggers a SIGABRT ("loading libcrypto in an unsafe way").
+         * If none of the Homebrew paths above match, ssl_load() sets
+         * G.ok=-1 and PyInit__cryptogram raises ImportError so that
+         * __init__.py falls back cleanly to the pure-Python backend. */
         NULL
     };
     for (int i = 0; libs[i]; i++) {
@@ -378,5 +382,15 @@ static struct PyModuleDef moddef = {
 
 PyMODINIT_FUNC PyInit__cryptogram(void) {
     ssl_load();
+    if (G.ok != 1) {
+        /* OpenSSL could not be loaded at runtime.  Raising ImportError here
+         * lets cryptogram/__init__.py catch it and fall back to the pure-
+         * Python _fallback.py backend instead of importing successfully and
+         * then crashing with RuntimeError (or SIGABRT) on first use. */
+        PyErr_SetString(PyExc_ImportError,
+            "cryptogram: OpenSSL shared library not found â "
+            "falling back to pure-Python backend");
+        return NULL;
+    }
     return PyModule_Create(&moddef);
 }

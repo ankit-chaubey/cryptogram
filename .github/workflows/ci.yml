@@ -46,4 +46,9 @@ jobs:
         env:
           CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
           CIBW_TEST_COMMAND: "python {project}/tests/test_cryptogram.py"
-          CIBW_BEFORE_BUILD: "pip install cryptography"
+          # cryptography is optional (used only by the pure-Python fallback).
+          # On niche platforms (e.g. manylinux i686) there is no pre-built
+          # wheel and building from source fails because cryptography's own
+          # build deps (puccinialin) require Python >=3.9.  Use || true so
+          # the C-extension primary backend can still be packaged and tested.
+          CIBW_BEFORE_BUILD: "pip install cryptography || true"
