@@ -31,6 +31,7 @@
 # define dl_close(h)  FreeLibrary((HMODULE)(h))
 #else
 # include <dlfcn.h>
+# include <dirent.h>
 # define dl_open(n)   dlopen((n), RTLD_LAZY|RTLD_GLOBAL)
 # define dl_sym(h,n)  dlsym((h),(n))
 # define dl_close(h)  dlclose(h)
@@ -88,40 +89,114 @@ static void ssl_load(void) {
     G.ok = -1;
     return;
 #endif
-    static const char *libs[] = {
-        /* Linux */
-        "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
-        "libssl.so.3",   "libssl.so.1.1",   "libssl.so",
-        /* Windows 64-bit */
-        "libcrypto-3-x64.dll","libcrypto-1_1-x64.dll",
-        /* Windows 32-bit */
-        "libcrypto-3.dll","libcrypto-1_1.dll",
-        /* macOS — bare dylib names (found if on DYLD_LIBRARY_PATH) */
-        "libcrypto.3.dylib","libcrypto.1.1.dylib","libcrypto.dylib",
-        /* macOS — Homebrew arm64 (Apple Silicon, prefix /opt/homebrew) */
-        "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
-        "/opt/homebrew/opt/openssl@3/lib/libcrypto.dylib",
-        "/opt/homebrew/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
-        "/opt/homebrew/lib/libcrypto.3.dylib",
-        /* macOS — Homebrew x86_64 (Intel, prefix /usr/local) */
-        "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib",
-        "/usr/local/opt/openssl@3/lib/libcrypto.dylib",
-        "/usr/local/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
-        "/usr/local/lib/libcrypto.3.dylib",
-        /* NOTE: /usr/lib/libcrypto.dylib is intentionally omitted.
-         * On macOS 12+ that path is Apple's security stub: dlopen-ing it
-         * triggers a SIGABRT ("loading libcrypto in an unsafe way").
-         * If none of the Homebrew paths above match, ssl_load() sets
-         * G.ok=-1 and PyInit__cryptogram raises ImportError so that
-         * __init__.py falls back cleanly to the pure-Python backend. */
-        NULL
-    };
-    for (int i = 0; libs[i]; i++) {
-        G.lib = dl_open(libs[i]);
-        if (G.lib) break;
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+    /* ── Strategy 1: symbols already in-process via RPATH (auditwheel) ──
+     * auditwheel bundles libcrypto into <pkg>.libs/, patches the extension's
+     * RPATH, and the dynamic linker loads it at import time.  Those symbols
+     * land in the global namespace and are reachable via dlopen(NULL), the
+     * pseudo-handle for the running process.  This avoids needing to know
+     * the auditwheel-mangled filename (e.g. libcrypto-4ad428b5.so.3). */
+    {
+        void *h = dlopen(NULL, RTLD_LAZY);
+        if (h && dlsym(h, "AES_set_encrypt_key")) {
+            G.lib = h;
+            goto load_syms;
+        }
+        if (h) dlclose(h);
+    }
+
+    /* ── Strategy 2: filesystem scan of <pkg>.libs/ next to this .so ──
+     * Covers the case where libcrypto was bundled by auditwheel but not
+     * yet in the process namespace (e.g., imported for the first time via
+     * an unusual Python embedding). */
+    {
+        Dl_info info;
+        if (dladdr((void *)ssl_load, &info) && info.dli_fname) {
+            char dir[4096];
+            strncpy(dir, info.dli_fname, sizeof(dir) - 1);
+            dir[sizeof(dir) - 1] = '\0';
+            char *slash = strrchr(dir, '/');
+            if (slash) {
+                *slash = '\0';
+                /* Typical auditwheel layouts relative to the extension's dir:
+                 *   ../cryptogram.libs/  (wheel: pkg/ lives one level up)
+                 *   cryptogram.libs/     (editable / odd layouts)
+                 *   ../.libs/            (older auditwheel)
+                 *   .libs/               (rare)  */
+                static const char *subdirs[] = {
+                    "../cryptogram.libs", "cryptogram.libs",
+                    "../.libs", ".libs", "..", NULL
+                };
+                static const char *lib_prefixes[] = {
+                    "libcrypto", "libssl", NULL
+                };
+                for (int si = 0; subdirs[si] && !G.lib; si++) {
+                    char ldir[8192];
+                    snprintf(ldir, sizeof(ldir), "%s/%s", dir, subdirs[si]);
+                    DIR *dp = opendir(ldir);
+                    if (!dp) continue;
+                    struct dirent *de;
+                    while ((de = readdir(dp)) && !G.lib) {
+                        for (int pi = 0; lib_prefixes[pi]; pi++) {
+                            size_t plen = strlen(lib_prefixes[pi]);
+                            if (strncmp(de->d_name, lib_prefixes[pi], plen) == 0) {
+                                char full[8192];
+                                size_t llen = strlen(ldir);
+                                size_t nlen = strlen(de->d_name);
+                                if (llen + 1 + nlen >= sizeof(full)) continue;
+                                memcpy(full, ldir, llen);
+                                full[llen] = '/';
+                                memcpy(full + llen + 1, de->d_name, nlen + 1);
+                                G.lib = dlopen(full, RTLD_LAZY | RTLD_GLOBAL);
+                                if (G.lib) break;
+                            }
+                        }
+                    }
+                    closedir(dp);
+                }
+                if (G.lib) goto load_syms;
+            }
+        }
+    }
+#endif /* !_WIN32 && !__APPLE__ */
+
+    /* ── Strategy 3: bare name search (system install / dev environment) ── */
+    {
+        static const char *libs[] = {
+            /* Linux */
+            "libcrypto.so.3","libcrypto.so.1.1","libcrypto.so",
+            "libssl.so.3",   "libssl.so.1.1",   "libssl.so",
+            /* Windows 64-bit */
+            "libcrypto-3-x64.dll","libcrypto-1_1-x64.dll",
+            /* Windows 32-bit */
+            "libcrypto-3.dll","libcrypto-1_1.dll",
+            /* macOS — bare dylib names (found if on DYLD_LIBRARY_PATH) */
+            "libcrypto.3.dylib","libcrypto.1.1.dylib","libcrypto.dylib",
+            /* macOS — Homebrew arm64 (Apple Silicon, prefix /opt/homebrew) */
+            "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
+            "/opt/homebrew/opt/openssl@3/lib/libcrypto.dylib",
+            "/opt/homebrew/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
+            "/opt/homebrew/lib/libcrypto.3.dylib",
+            /* macOS — Homebrew x86_64 (Intel, prefix /usr/local) */
+            "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib",
+            "/usr/local/opt/openssl@3/lib/libcrypto.dylib",
+            "/usr/local/opt/openssl@1.1/lib/libcrypto.1.1.dylib",
+            "/usr/local/lib/libcrypto.3.dylib",
+            /* NOTE: /usr/lib/libcrypto.dylib is intentionally omitted —
+             * on macOS 12+ it is Apple's security stub and triggers SIGABRT. */
+            NULL
+        };
+        for (int i = 0; libs[i]; i++) {
+            G.lib = dl_open(libs[i]);
+            if (G.lib) break;
+        }
     }
     if (!G.lib) { G.ok = -1; return; }
 
+#if !defined(_WIN32) && !defined(__APPLE__)
+load_syms:
+#endif
 #define LD(field, sym, T) G.field = (T)dl_sym(G.lib, sym); if(!G.field){G.ok=-1;return;}
     LD(set_enc,    "AES_set_encrypt_key",      fn_set_enc)
     LD(set_dec,    "AES_set_decrypt_key",      fn_set_dec)

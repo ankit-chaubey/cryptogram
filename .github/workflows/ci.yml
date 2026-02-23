@@ -52,3 +52,8 @@ jobs:
           # build deps (puccinialin) require Python >=3.9.  Use || true so
           # the C-extension primary backend can still be packaged and tested.
           CIBW_BEFORE_BUILD: "pip install cryptography || true"
+          # Install cryptography in the test venv too: if OpenSSL is
+          # unavailable at runtime (e.g. unusual manylinux sandbox), the
+          # C extension raises ImportError and __init__.py falls back to
+          # _fallback.py — which needs cryptography to be importable.
+          CIBW_BEFORE_TEST: "pip install cryptography || true"
