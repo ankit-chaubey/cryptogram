@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "cryptogram"
+version = "0.1.0"
+description = "Ultra-fast AES-256 cryptography for Telegram MTProto — AES-NI accelerated, API-compatible with tgcrypto and cryptg"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Ankit Chaubey", email = "ankitchaubey.dev@gmail.com" }
+]
+keywords = ["telegram", "mtproto", "aes", "cryptography", "telethon", "pyrogram", "aesni"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Communications :: Chat",
+]
+requires-python = ">=3.8"
+dependencies = ["cryptography>=3.0"]
+
+[project.urls]
+Homepage = "https://github.com/ankit-chaubey/cryptogram"
+Repository = "https://github.com/ankit-chaubey/cryptogram"
+"Bug Tracker" = "https://github.com/ankit-chaubey/cryptogram/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cryptogram*"]

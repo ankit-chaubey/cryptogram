@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+include cryptogram/_cryptogram.c
+include cryptogram/_fallback.py
+include cryptogram/__init__.py
+recursive-include tests *.py
