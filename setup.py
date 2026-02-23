@@ -31,11 +31,14 @@ else:
     if sys.platform != "darwin":
         extra_compile_args.insert(1, "-march=native")
 
-    # The AES implementation uses OpenSSL loaded at runtime via dlopen —
-    # there are no SSE / AES-NI intrinsics in the C source, so the x86-only
-    # -maes/-msse2/-msse4.1 flags are not needed and would cause errors when
-    # clang compiles the arm64 slice of a universal2 build.
-    aesni_flags = [] if sys.platform == "darwin" else ["-maes", "-msse2", "-msse4.1"]
+    # -maes/-msse2/-msse4.1 are x86-only intrinsic flags; they are invalid on
+    # ARM (aarch64/armv7) and any other non-x86 target and will cause a
+    # hard build error.  AES acceleration on ARM is handled at runtime via
+    # OpenSSL's own CPU-feature detection — no compiler flags needed.
+    import platform
+    machine = platform.machine().lower()
+    is_x86 = machine in ("x86_64", "amd64", "i686", "i386")
+    aesni_flags = ["-maes", "-msse2", "-msse4.1"] if is_x86 else []
 
 ext = Extension(
     "cryptogram._cryptogram",

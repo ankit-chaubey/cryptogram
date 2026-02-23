@@ -10,7 +10,7 @@ PyPI   : cryptogram
 License: MIT
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__  = "Ankit Chaubey"
 __email__   = "ankitchaubey.dev@gmail.com"
 __all__ = [
